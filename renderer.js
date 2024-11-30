@@ -51,7 +51,7 @@ const CONFIG = {
 
   // Color settings
   COLOR_CHASE_ENABLED: true,
-  COLOR_CHASE_SPEED: 0.5, // Lights per second
+  COLOR_CHASE_SPEED: 0.3, // Slightly slower to make transitions more visible
   OPACITY_MIN: 0.5,
   OPACITY_MAX: 1.0,
 
@@ -61,6 +61,97 @@ const CONFIG = {
 
 // Active colors array (will be set based on preset)
 let colors = COLOR_PRESETS[CONFIG.CURRENT_PRESET];
+
+// Add color conversion utilities after the CONFIG object
+const ColorUtils = {
+  hexToHSL(hex) {
+    // Convert hex to RGB first
+    let r = 0,
+      g = 0,
+      b = 0;
+    if (hex.length === 4) {
+      r = parseInt(hex[1] + hex[1], 16);
+      g = parseInt(hex[2] + hex[2], 16);
+      b = parseInt(hex[3] + hex[3], 16);
+    } else if (hex.length === 7) {
+      r = parseInt(hex.substring(1, 3), 16);
+      g = parseInt(hex.substring(3, 5), 16);
+      b = parseInt(hex.substring(5, 7), 16);
+    }
+
+    r /= 255;
+    g /= 255;
+    b /= 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    let h,
+      s,
+      l = (max + min) / 2;
+
+    if (max === min) {
+      h = s = 0;
+    } else {
+      const d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r:
+          h = (g - b) / d + (g < b ? 6 : 0);
+          break;
+        case g:
+          h = (b - r) / d + 2;
+          break;
+        case b:
+          h = (r - g) / d + 4;
+          break;
+      }
+      h /= 6;
+    }
+
+    return { h: h * 360, s: s * 100, l: l * 100 };
+  },
+
+  HSLToString(h, s, l) {
+    return `hsl(${h}, ${s}%, ${l}%)`;
+  },
+
+  // Add easing function for sharper transitions
+  ease(t) {
+    // This creates a sharp transition with less time spent in between colors
+    return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+  },
+
+  interpolateHSL(hsl1, hsl2, factor) {
+    // Apply easing to the factor to make transitions sharper
+    const easedFactor = this.ease(factor);
+
+    // Handle hue interpolation across the shortest path
+    let h1 = hsl1.h;
+    let h2 = hsl2.h;
+
+    // Ensure we take the shortest path around the color wheel
+    if (Math.abs(h2 - h1) > 180) {
+      if (h1 < h2) {
+        h1 += 360;
+      } else {
+        h2 += 360;
+      }
+    }
+
+    // Use the eased factor for all interpolations
+    const h = (h1 + easedFactor * (h2 - h1)) % 360;
+    const s = hsl1.s + easedFactor * (hsl2.s - hsl1.s);
+    const l = hsl1.l + easedFactor * (hsl2.l - hsl1.l);
+
+    return { h, s, l };
+  },
+};
+
+// Convert color presets to HSL
+const HSL_PRESETS = {};
+for (const [key, colors] of Object.entries(COLOR_PRESETS)) {
+  HSL_PRESETS[key] = colors.map((color) => ColorUtils.hexToHSL(color));
+}
 
 // Function to change color preset
 function setColorPreset(presetName) {
@@ -112,10 +203,31 @@ class Light {
       return this.color;
     }
 
-    // Calculate color index based on time and position
+    // Calculate position in the color sequence
     const totalShift = (time * CONFIG.COLOR_CHASE_SPEED) / 1000;
-    const colorIndex = Math.floor((this.index + totalShift) % colors.length);
-    return colors[colorIndex];
+    const position = (this.index + totalShift) % colors.length;
+    const currentIndex = Math.floor(position);
+    const nextIndex = (currentIndex + 1) % colors.length;
+
+    // Get the HSL colors to interpolate between
+    const currentHSL = HSL_PRESETS[CONFIG.CURRENT_PRESET][currentIndex];
+    const nextHSL = HSL_PRESETS[CONFIG.CURRENT_PRESET][nextIndex];
+
+    // Calculate interpolation factor (0 to 1)
+    const factor = position - Math.floor(position);
+
+    // Interpolate between colors
+    const interpolatedHSL = ColorUtils.interpolateHSL(
+      currentHSL,
+      nextHSL,
+      factor
+    );
+
+    return ColorUtils.HSLToString(
+      interpolatedHSL.h,
+      interpolatedHSL.s,
+      interpolatedHSL.l
+    );
   }
 
   draw() {
@@ -183,14 +295,7 @@ class Light {
     const currentColor = this.getCurrentColor(time);
     ctx.shadowColor = currentColor;
     ctx.shadowBlur = 25 * finalIntensity;
-
-    // Adjust the fill color based on intensity
-    const rgb = this.hexToRgb(currentColor);
-    const opacity =
-      CONFIG.OPACITY_MIN +
-      finalIntensity * (CONFIG.OPACITY_MAX - CONFIG.OPACITY_MIN);
-    const adjustedColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
-    ctx.fillStyle = adjustedColor;
+    ctx.fillStyle = currentColor;
 
     // Draw oval with point
     ctx.beginPath();
