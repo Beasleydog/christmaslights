@@ -1,5 +1,5 @@
 {
-  "name": "christmaslights",
+  "name": "holidaylights",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -9,8 +9,8 @@
     "make": "electron-forge make"
   },
   "build": {
-    "appId": "com.christmaslights",
-    "productName": "ChristmasLights",
+    "appId": "com.holidaylights",
+    "productName": "HolidayLights",
     "win": {
       "target": [
         "portable"
@@ -24,7 +24,7 @@
       ]
     },
     "portable": {
-      "artifactName": "ChristmasLights.exe"
+      "artifactName": "HolidayLights.exe"
     },
     "asar": false,
     "directories": {
@@ -34,7 +34,7 @@
   },
   "author": "samschneider",
   "license": "ISC",
-  "description": "Christmas Lights Display with Control GUI",
+  "description": "Holiday Lights Display with Control GUI",
   "devDependencies": {
     "@electron-forge/cli": "^7.6.0",
     "@electron-forge/maker-deb": "^7.6.0",
@@ -55,10 +55,10 @@
         {
           "name": "@electron-forge/maker-squirrel",
           "config": {
-            "name": "ChristmasLights",
+            "name": "HolidayLights",
             "authors": "samschneider",
             "setupIcon": "./logo.ico",
-            "setupExe": "ChristmasLights Setup.exe",
+            "setupExe": "HolidayLights Setup.exe",
             "createDesktopShortcut": true,
             "createStartMenuShortcut": true
           }

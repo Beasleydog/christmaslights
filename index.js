@@ -1,6 +1,15 @@
 const { app, BrowserWindow, screen, ipcMain } = require("electron");
 const path = require("path");
 
+if (require("electron-squirrel-startup")) {
+  app.quit();
+  return;
+}
+
+if (process.platform === "win32") {
+  app.setAppUserModelId("com.holidaylights");
+}
+
 // Enforce single instance
 const gotTheLock = app.requestSingleInstanceLock();
 
@@ -39,6 +48,7 @@ if (!gotTheLock) {
         contextIsolation: true,
       },
       autoHideMenuBar: true,
+      icon: path.join(__dirname, "logo.ico"),
     });
 
     lightsWindow.setFullScreen(true);
@@ -58,8 +68,8 @@ if (!gotTheLock) {
     }
 
     controlWindow = new BrowserWindow({
-      width: 600,
-      height: 800,
+      width: 800,
+      height: 600,
       resizable: false,
       webPreferences: {
         preload: path.join(__dirname, "preload.js"),
@@ -67,6 +77,7 @@ if (!gotTheLock) {
         contextIsolation: true,
       },
       autoHideMenuBar: true,
+      icon: path.join(__dirname, "logo.ico"),
     });
 
     controlWindow.loadFile("control.html");
