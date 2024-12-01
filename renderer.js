@@ -1,8 +1,9 @@
 const canvas = document.getElementById("lightsCanvas");
 const ctx = canvas.getContext("2d");
 let lights = [];
-const NUM_LIGHTS = 50;
+let NUM_LIGHTS = 50;
 const yOffset = 8;
+const sideXOffset = 8;
 let isInitialized = false;
 
 // Color presets
@@ -30,7 +31,7 @@ const COLOR_PRESETS = {
 };
 
 // Configuration
-const CONFIG = {
+let CONFIG = {
   // Light appearance
   BULB_RADIUS: 6,
   BASE_WIDTH: 4,
@@ -51,13 +52,30 @@ const CONFIG = {
 
   // Color settings
   COLOR_CHASE_ENABLED: true,
-  COLOR_CHASE_SPEED: 0.3, // Slightly slower to make transitions more visible
+  COLOR_CHASE_SPEED: 0.3,
   OPACITY_MIN: 0.5,
   OPACITY_MAX: 1.0,
 
   // Current color preset
-  CURRENT_PRESET: "HANUKKAH",
+  CURRENT_PRESET: "RAINBOW",
+
+  // Position
+  POSITION: "SIDE", // Default position
 };
+
+// Update settings from control window
+window.electronAPI.onSettingsUpdate((event, settings) => {
+  CONFIG.CURRENT_PRESET = settings.colorPreset;
+  colors = COLOR_PRESETS[settings.colorPreset]; // Update the active colors array
+  CONFIG.POSITION = settings.position;
+  NUM_LIGHTS = settings.numLights;
+  CONFIG.COLOR_CHASE_SPEED = settings.speed * 0.3;
+  CONFIG.GLOW_INTENSITY_BASE = settings.brightness * 0.6;
+  CONFIG.TWINKLE_INTENSITY_BASE = settings.brightness * 0.7;
+
+  // Recreate lights with new settings
+  createLights();
+});
 
 // Active colors array (will be set based on preset)
 let colors = COLOR_PRESETS[CONFIG.CURRENT_PRESET];
@@ -162,27 +180,13 @@ function setColorPreset(presetName) {
   }
 }
 
-// Add keyboard shortcuts for changing presets
-window.addEventListener("keydown", (event) => {
-  switch (event.key.toLowerCase()) {
-    case "r":
-      setColorPreset("RAINBOW");
-      break;
-    case "c":
-      setColorPreset("CHRISTMAS");
-      break;
-    case "h":
-      setColorPreset("HANUKKAH");
-      break;
-  }
-});
-
 class Light {
-  constructor(x, y, color, index) {
+  constructor(x, y, color, index, rotation = 0) {
     this.x = x;
     this.y = y;
     this.color = color;
     this.index = index;
+    this.rotation = rotation;
     this.radius = CONFIG.BULB_RADIUS;
     this.baseWidth = CONFIG.BASE_WIDTH;
     this.baseHeight = CONFIG.BASE_HEIGHT;
@@ -209,9 +213,13 @@ class Light {
     const currentIndex = Math.floor(position);
     const nextIndex = (currentIndex + 1) % colors.length;
 
-    // Get the HSL colors to interpolate between
-    const currentHSL = HSL_PRESETS[CONFIG.CURRENT_PRESET][currentIndex];
-    const nextHSL = HSL_PRESETS[CONFIG.CURRENT_PRESET][nextIndex];
+    // Get the current colors to interpolate between
+    const currentColor = colors[currentIndex];
+    const nextColor = colors[nextIndex];
+
+    // Convert hex colors to HSL
+    const currentHSL = ColorUtils.hexToHSL(currentColor);
+    const nextHSL = ColorUtils.hexToHSL(nextColor);
 
     // Calculate interpolation factor (0 to 1)
     const factor = position - Math.floor(position);
@@ -247,7 +255,14 @@ class Light {
       Math.sin(this.twinklePhase) * CONFIG.TWINKLE_INTENSITY_VARIANCE;
     const finalIntensity = pulseIntensity * twinkleIntensity;
 
-    // Draw base shadows first
+    // Save the current context state
+    ctx.save();
+
+    // Translate to the light position and apply rotation
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation);
+
+    // Draw base shadows
     ctx.beginPath();
     for (let i = 0; i < 4; i++) {
       ctx.shadowColor = `rgba(0, 0, 0, ${0.02 - i * 0.004})`;
@@ -256,8 +271,8 @@ class Light {
       ctx.shadowOffsetX = (i - 1.5) * 2;
       ctx.fillStyle = "#696969";
       ctx.fillRect(
-        this.x - this.baseWidth / 2,
-        this.y - this.baseHeight,
+        -this.baseWidth / 2,
+        -this.baseHeight,
         this.baseWidth,
         this.baseHeight
       );
@@ -271,12 +286,7 @@ class Light {
       ctx.shadowBlur = 6 + i * 4;
       ctx.shadowOffsetY = 0.5 + i * 0.3;
       ctx.shadowOffsetX = (i - 1) * 1;
-      ctx.fillRect(
-        this.x - this.baseWidth * 0.8,
-        this.y,
-        this.baseWidth * 1.6,
-        3
-      );
+      ctx.fillRect(-this.baseWidth * 0.8, 0, this.baseWidth * 1.6, 3);
     }
 
     // Reset shadows before drawing the glowing bulb
@@ -285,13 +295,11 @@ class Light {
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
 
-    // Draw the glowing bulb with shadow blur for the glow effect
-    ctx.beginPath();
+    // Draw the glowing bulb
     ctx.save();
-    ctx.translate(this.x, this.y + this.baseHeight / 2);
+    ctx.translate(0, this.baseHeight / 2);
     ctx.scale(1, 1.5);
 
-    // Update color based on chase animation
     const currentColor = this.getCurrentColor(time);
     ctx.shadowColor = currentColor;
     ctx.shadowBlur = 25 * finalIntensity;
@@ -299,7 +307,6 @@ class Light {
 
     // Draw oval with point
     ctx.beginPath();
-    // Draw most of the oval
     ctx.ellipse(
       0,
       -this.radius * 0.1,
@@ -309,7 +316,6 @@ class Light {
       0,
       Math.PI * 2
     );
-    // Add slight point at bottom
     ctx.quadraticCurveTo(
       this.radius * 0.2,
       this.radius * 1,
@@ -324,6 +330,7 @@ class Light {
     );
     ctx.fill();
 
+    ctx.restore();
     ctx.restore();
   }
 
@@ -349,15 +356,49 @@ class Light {
 
 function createLights() {
   lights = [];
-
   const lightWidth = 20;
-  const extraSpace = Math.max(0, canvas.width - lightWidth * NUM_LIGHTS);
-  const spacing = extraSpace / NUM_LIGHTS;
 
-  for (let i = 0; i < NUM_LIGHTS; i++) {
-    const x = spacing / 2 + i * (spacing + lightWidth);
-    const color = colors[Math.floor(Math.random() * colors.length)];
-    lights.push(new Light(x, yOffset, color, i));
+  if (CONFIG.POSITION === "SIDE") {
+    // Calculate spacing for side lights
+    const extraSpace = Math.max(
+      0,
+      canvas.height - lightWidth * (NUM_LIGHTS / 2)
+    );
+    const spacing = extraSpace / (NUM_LIGHTS / 2);
+
+    // Create lights for left side
+    for (let i = 0; i < NUM_LIGHTS / 2; i++) {
+      const y = spacing / 2 + i * (spacing + lightWidth);
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      // Left side lights, rotated 90 degrees clockwise
+      lights.push(new Light(sideXOffset, y, color, i, -Math.PI / 2));
+    }
+
+    // Create lights for right side
+    for (let i = 0; i < NUM_LIGHTS / 2; i++) {
+      const y = spacing / 2 + i * (spacing + lightWidth);
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      // Right side lights, rotated -90 degrees counterclockwise
+      lights.push(
+        new Light(
+          canvas.width - sideXOffset,
+          y,
+          color,
+          i + NUM_LIGHTS / 2,
+          Math.PI / 2
+        )
+      );
+    }
+  } else {
+    // TOP position (original behavior)
+    const extraSpace = Math.max(0, canvas.width - lightWidth * NUM_LIGHTS);
+    const spacing = extraSpace / NUM_LIGHTS;
+
+    for (let i = 0; i < NUM_LIGHTS; i++) {
+      const x = spacing / 2 + i * (spacing + lightWidth);
+      const color = colors[Math.floor(Math.random() * colors.length)];
+      lights.push(new Light(x, yOffset, color, i, 0));
+    }
   }
 }
 
@@ -391,8 +432,19 @@ window.addEventListener("resize", resizeCanvas);
 // Draw wire
 function drawWire() {
   ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(canvas.width, 0);
+
+  if (CONFIG.POSITION === "SIDE") {
+    // Draw wires on both sides
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, canvas.height);
+    ctx.moveTo(canvas.width, 0);
+    ctx.lineTo(canvas.width, canvas.height);
+  } else {
+    // Draw wire across top
+    ctx.moveTo(0, 0);
+    ctx.lineTo(canvas.width, 0);
+  }
+
   ctx.strokeStyle = "#333333";
   ctx.lineWidth = 2;
   ctx.stroke();

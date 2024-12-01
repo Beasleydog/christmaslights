@@ -1,44 +1,131 @@
-const { app, BrowserWindow, screen } = require("electron");
+const { app, BrowserWindow, screen, ipcMain } = require("electron");
 const path = require("path");
 
-const createWindow = () => {
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width, height } = primaryDisplay.size;
+// Enforce single instance
+const gotTheLock = app.requestSingleInstanceLock();
 
-  const win = new BrowserWindow({
-    width,
-    height,
-    x: 0,
-    y: 0,
-    frame: false,
-    transparent: true,
-    alwaysOnTop: true,
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-    },
-  });
-
-  // Make the window click-through-able
-  win.setIgnoreMouseEvents(true);
-
-  // Set window to be fullscreen
-  win.setFullScreen(true);
-
-  win.loadFile("index.html");
-};
-
-app.whenReady().then(() => {
-  createWindow();
-
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on("second-instance", (event, commandLine, workingDirectory) => {
+    // Someone tried to run a second instance, we should focus our window.
+    if (controlWindow) {
+      if (controlWindow.isMinimized()) controlWindow.restore();
+      controlWindow.focus();
+      controlWindow.show();
     }
   });
-});
 
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
-});
+  let lightsWindow = null;
+  let controlWindow = null;
+  let forceQuit = false;
+
+  const createLightsWindow = () => {
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width, height } = primaryDisplay.size;
+
+    lightsWindow = new BrowserWindow({
+      width,
+      height,
+      x: 0,
+      y: 0,
+      frame: false,
+      transparent: true,
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      webPreferences: {
+        preload: path.join(__dirname, "preload.js"),
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+      autoHideMenuBar: true,
+    });
+
+    lightsWindow.setFullScreen(true);
+    lightsWindow.setIgnoreMouseEvents(true, { forward: true });
+    lightsWindow.webContents.setIgnoreMenuShortcuts(true);
+    lightsWindow.loadFile("lights.html");
+
+    lightsWindow.on("closed", () => {
+      lightsWindow = null;
+    });
+  };
+
+  const createControlWindow = () => {
+    if (controlWindow) {
+      controlWindow.focus();
+      return;
+    }
+
+    controlWindow = new BrowserWindow({
+      width: 600,
+      height: 800,
+      resizable: false,
+      webPreferences: {
+        preload: path.join(__dirname, "preload.js"),
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+      autoHideMenuBar: true,
+    });
+
+    controlWindow.loadFile("control.html");
+
+    controlWindow.on("close", (event) => {
+      if (!forceQuit && lightsWindow !== null) {
+        event.preventDefault();
+        controlWindow.hide();
+      }
+    });
+
+    controlWindow.on("closed", () => {
+      controlWindow = null;
+    });
+  };
+
+  // IPC handlers
+  ipcMain.handle("start-lights", async (event, settings) => {
+    if (!lightsWindow) {
+      createLightsWindow();
+    }
+    // Send settings to lights window
+    setTimeout(() => {
+      lightsWindow.webContents.send("update-settings", settings);
+    }, 100);
+  });
+
+  ipcMain.handle("stop-lights", async () => {
+    if (lightsWindow) {
+      lightsWindow.close();
+      lightsWindow = null;
+    }
+  });
+
+  ipcMain.handle("get-lights-status", () => {
+    return lightsWindow !== null;
+  });
+
+  // Add tray icon to reopen control window
+  app.whenReady().then(() => {
+    createControlWindow();
+
+    app.on("activate", () => {
+      if (!controlWindow) {
+        createControlWindow();
+      } else {
+        controlWindow.show();
+      }
+    });
+
+    // Handle the quit event
+    app.on("before-quit", () => {
+      forceQuit = true;
+    });
+  });
+
+  app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") {
+      app.quit();
+    }
+  });
+}
