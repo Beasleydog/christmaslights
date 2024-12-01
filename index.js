@@ -69,7 +69,7 @@ if (!gotTheLock) {
 
     controlWindow = new BrowserWindow({
       width: 800,
-      height: 600,
+      height: 800,
       resizable: false,
       webPreferences: {
         preload: path.join(__dirname, "preload.js"),

@@ -5,6 +5,7 @@ let NUM_LIGHTS = 50;
 const yOffset = 8;
 const sideXOffset = 8;
 let isInitialized = false;
+let animationFrameId = null;
 
 // Color presets
 const COLOR_PRESETS = {
@@ -73,8 +74,16 @@ window.electronAPI.onSettingsUpdate((event, settings) => {
   CONFIG.GLOW_INTENSITY_BASE = settings.brightness * 0.6;
   CONFIG.TWINKLE_INTENSITY_BASE = settings.brightness * 0.7;
 
+  // Cancel existing animation frame before recreating lights
+  if (animationFrameId !== null) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+
   // Recreate lights with new settings
   createLights();
+  // Restart animation
+  animate();
 });
 
 // Active colors array (will be set based on preset)
@@ -406,7 +415,14 @@ function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
   if (isInitialized) {
+    // Cancel existing animation frame before recreating lights
+    if (animationFrameId !== null) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
     createLights();
+    // Restart animation
+    animate();
   }
 }
 
@@ -455,5 +471,5 @@ function animate() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawWire();
   lights.forEach((light) => light.draw());
-  requestAnimationFrame(animate);
+  animationFrameId = requestAnimationFrame(animate);
 }
