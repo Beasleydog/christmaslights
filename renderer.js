@@ -2,10 +2,13 @@ const canvas = document.getElementById("lightsCanvas");
 const ctx = canvas.getContext("2d");
 let lights = [];
 let NUM_LIGHTS = 50;
-const yOffset = 8;
-const sideXOffset = 8;
+const yOffset = 10;
+const sideXOffset = 10;
 let isInitialized = false;
 let animationFrameId = null;
+const FPS = 7; // Set desired FPS
+const frameInterval = 1000 / FPS; // Calculate interval between frames
+let lastFrameTime = 0;
 
 // Color presets
 const COLOR_PRESETS = {
@@ -36,7 +39,7 @@ let CONFIG = {
   // Light appearance
   BULB_RADIUS: 6,
   BASE_WIDTH: 4,
-  BASE_HEIGHT: 8,
+  BASE_HEIGHT: 10,
 
   // Animation settings
   PULSE_SPEED_MIN: 0.5,
@@ -216,8 +219,11 @@ class Light {
       return this.color;
     }
 
-    // Calculate position in the color sequence
-    const totalShift = (time * CONFIG.COLOR_CHASE_SPEED) / 1000;
+    // Use high-precision time for smooth color transitions
+    const preciseTime = performance.now() / 1000;
+
+    // Calculate position in the color sequence using precise time
+    const totalShift = preciseTime * CONFIG.COLOR_CHASE_SPEED;
     const position = (this.index + totalShift) % colors.length;
     const currentIndex = Math.floor(position);
     const nextIndex = (currentIndex + 1) % colors.length;
@@ -255,48 +261,86 @@ class Light {
     this.pulsePhase += deltaTime * this.pulseSpeed;
     this.twinklePhase += deltaTime * this.twinkleSpeed;
 
-    const pulseIntensity =
-      CONFIG.GLOW_INTENSITY_BASE +
-      Math.sin(this.pulsePhase) * CONFIG.GLOW_INTENSITY_VARIANCE +
-      this.intensityOffset;
-    const twinkleIntensity =
-      CONFIG.TWINKLE_INTENSITY_BASE +
-      Math.sin(this.twinklePhase) * CONFIG.TWINKLE_INTENSITY_VARIANCE;
-    const finalIntensity = pulseIntensity * twinkleIntensity;
+    const finalIntensity = 1;
 
-    // Save the current context state
     ctx.save();
-
-    // Translate to the light position and apply rotation
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rotation);
 
-    // Draw base shadows
+    // Draw enhanced base shadows with metallic effect
     ctx.beginPath();
-    for (let i = 0; i < 4; i++) {
-      ctx.shadowColor = `rgba(0, 0, 0, ${0.02 - i * 0.004})`;
-      ctx.shadowBlur = 8 + i * 6;
-      ctx.shadowOffsetY = 1 + i * 0.5;
-      ctx.shadowOffsetX = (i - 1.5) * 2;
-      ctx.fillStyle = "#696969";
-      ctx.fillRect(
-        -this.baseWidth / 2,
-        -this.baseHeight,
-        this.baseWidth,
-        this.baseHeight
-      );
-    }
+    const baseGradient = ctx.createLinearGradient(
+      -this.baseWidth / 2,
+      -this.baseHeight,
+      this.baseWidth / 2,
+      0
+    );
+    baseGradient.addColorStop(0, "#808080");
+    baseGradient.addColorStop(0.5, "#A0A0A0");
+    baseGradient.addColorStop(1, "#696969");
 
-    // Draw metal connector with shadow
+    // Add cylindrical gradient for 3D effect
+    const cylinderGradient = ctx.createLinearGradient(
+      -this.baseWidth / 2,
+      0,
+      this.baseWidth / 2,
+      0
+    );
+    cylinderGradient.addColorStop(0, "#404040");
+    cylinderGradient.addColorStop(0.2, "#808080");
+    cylinderGradient.addColorStop(0.5, "#A0A0A0");
+    cylinderGradient.addColorStop(0.8, "#808080");
+    cylinderGradient.addColorStop(1, "#404040");
+
+    // Draw base with large, opaque shadows
+    ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetY = 3;
+    ctx.shadowOffsetX = 0;
+
+    // Draw base with combined gradients
+    ctx.save();
+    ctx.fillStyle = baseGradient;
+    ctx.fillRect(
+      -this.baseWidth / 2,
+      -this.baseHeight,
+      this.baseWidth,
+      this.baseHeight
+    );
+
+    // Overlay cylindrical gradient with partial opacity
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = cylinderGradient;
+    ctx.fillRect(
+      -this.baseWidth / 2,
+      -this.baseHeight,
+      this.baseWidth,
+      this.baseHeight
+    );
+    ctx.restore();
+
+    // Draw enhanced metal connector with detailed metallic effect
+    const connectorGradient = ctx.createLinearGradient(
+      -this.baseWidth * 0.8,
+      0,
+      this.baseWidth * 0.8,
+      3
+    );
+    connectorGradient.addColorStop(0, "#B8B8B8");
+    connectorGradient.addColorStop(0.5, "#E0E0E0");
+    connectorGradient.addColorStop(1, "#A0A0A0");
+
+    // Draw connector with large, opaque shadow
+    ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+    ctx.shadowBlur = 15;
+    ctx.shadowOffsetY = 2;
+    ctx.shadowOffsetX = 0;
+    ctx.fillStyle = connectorGradient;
+
+    // Rounded connector edges
     ctx.beginPath();
-    ctx.fillStyle = "#A0A0A0";
-    for (let i = 0; i < 3; i++) {
-      ctx.shadowColor = `rgba(0, 0, 0, ${0.015 - i * 0.004})`;
-      ctx.shadowBlur = 6 + i * 4;
-      ctx.shadowOffsetY = 0.5 + i * 0.3;
-      ctx.shadowOffsetX = (i - 1) * 1;
-      ctx.fillRect(-this.baseWidth * 0.8, 0, this.baseWidth * 1.6, 3);
-    }
+    ctx.roundRect(-this.baseWidth * 0.8, 0, this.baseWidth * 1.6, 3, 1);
+    ctx.fill();
 
     // Reset shadows before drawing the glowing bulb
     ctx.shadowColor = "transparent";
@@ -304,17 +348,17 @@ class Light {
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
 
-    // Draw the glowing bulb
+    // Draw dark gray shadow for depth
     ctx.save();
     ctx.translate(0, this.baseHeight / 2);
     ctx.scale(1, 1.5);
+    ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetX = 3;
+    ctx.shadowOffsetY = 3;
+    ctx.fillStyle = "rgba(50, 50, 50, 0.2)";
 
-    const currentColor = this.getCurrentColor(time);
-    ctx.shadowColor = currentColor;
-    ctx.shadowBlur = 25 * finalIntensity;
-    ctx.fillStyle = currentColor;
-
-    // Draw oval with point
+    // Draw shadow shape
     ctx.beginPath();
     ctx.ellipse(
       0,
@@ -325,19 +369,103 @@ class Light {
       0,
       Math.PI * 2
     );
+    ctx.moveTo(this.radius * 0.8, -this.radius * 0.1);
     ctx.quadraticCurveTo(
-      this.radius * 0.2,
-      this.radius * 1,
+      this.radius * 0.4,
+      this.radius * 0.8,
       0,
       this.radius * 1.1
     );
     ctx.quadraticCurveTo(
-      -this.radius * 0.2,
-      this.radius * 1,
+      -this.radius * 0.4,
+      this.radius * 0.8,
       -this.radius * 0.8,
       -this.radius * 0.1
     );
     ctx.fill();
+    ctx.restore();
+
+    // Draw the enhanced glowing bulb
+    ctx.save();
+    ctx.translate(0, this.baseHeight / 2);
+    ctx.scale(1, 1.5);
+
+    const currentColor = this.getCurrentColor(time);
+
+    //Inner white gradient color
+    const innerWhiteGradient = ctx.createRadialGradient(
+      0,
+      -this.radius,
+      0,
+      0,
+      -this.radius * 0.2,
+      this.radius
+    );
+    innerWhiteGradient.addColorStop(0, "rgba(255, 255, 255, .3)");
+    innerWhiteGradient.addColorStop(1, "rgba(255, 255, 255, 0.0)");
+
+    // Multiple layered glows for more depth
+    for (let i = 0; i < 3; i++) {
+      ctx.shadowColor = currentColor;
+      ctx.shadowBlur = (40 + i * 5) * finalIntensity;
+      ctx.fillStyle = i === 2 ? innerWhiteGradient : currentColor;
+
+      // Enhanced bulb shape with smoother curves
+      ctx.beginPath();
+      ctx.ellipse(
+        0,
+        -this.radius * 0.1,
+        this.radius * 0.8,
+        this.radius,
+        0,
+        0,
+        Math.PI * 2
+      );
+
+      // Improved pointed bottom with smoother transition
+      ctx.moveTo(this.radius * 0.8, -this.radius * 0.1);
+      ctx.quadraticCurveTo(
+        this.radius * 0.4,
+        this.radius * 0.8,
+        0,
+        this.radius * 1.1
+      );
+      ctx.quadraticCurveTo(
+        -this.radius * 0.4,
+        this.radius * 0.8,
+        -this.radius * 0.8,
+        -this.radius * 0.1
+      );
+
+      ctx.fill();
+    }
+
+    // Add highlight reflection
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.05 * finalIntensity})`;
+    ctx.ellipse(
+      -this.radius * 0.3,
+      -this.radius * 0.3,
+      this.radius * 0.2,
+      this.radius * 0.3,
+      Math.PI / 4,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+
+    //White shine line
+    ctx.beginPath();
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+    ctx.lineWidth = 2;
+    ctx.moveTo(this.radius * 0.6, -this.radius * 0.1);
+    ctx.quadraticCurveTo(
+      this.radius * 0.3,
+      this.radius * 0.7,
+      0,
+      this.radius * 0.9
+    );
+    ctx.stroke();
 
     ctx.restore();
     ctx.restore();
@@ -412,8 +540,20 @@ function createLights() {
 }
 
 function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  // Get the device pixel ratio
+  const dpr = window.devicePixelRatio || 1;
+
+  // Set canvas size in CSS pixels
+  canvas.style.width = window.innerWidth + "px";
+  canvas.style.height = window.innerHeight + "px";
+
+  // Scale canvas dimensions by DPR for higher resolution
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+
+  // Scale the rendering context to handle the pixel ratio
+  ctx.scale(dpr, dpr);
+
   if (isInitialized) {
     // Cancel existing animation frame before recreating lights
     if (animationFrameId !== null) {
@@ -466,10 +606,19 @@ function drawWire() {
   ctx.stroke();
 }
 
-// Animation loop
-function animate() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawWire();
-  lights.forEach((light) => light.draw());
+// Animation loop with FPS control
+function animate(currentTime) {
+  if (!lastFrameTime) lastFrameTime = currentTime;
+
+  const elapsed = currentTime - lastFrameTime;
+
+  if (elapsed > frameInterval) {
+    lastFrameTime = currentTime - (elapsed % frameInterval);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawWire();
+    lights.forEach((light) => light.draw());
+  }
+
   animationFrameId = requestAnimationFrame(animate);
 }

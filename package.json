@@ -51,6 +51,10 @@
   },
   "config": {
     "forge": {
+      "packagerConfig": {
+        "icon": "./logo.ico",
+        "name": "HolidayLights"
+      },
       "makers": [
         {
           "name": "@electron-forge/maker-squirrel",
