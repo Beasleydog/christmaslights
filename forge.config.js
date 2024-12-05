@@ -28,4 +28,16 @@ module.exports = {
       },
     },
   ],
+  publishers: [
+    {
+      name: "@electron-forge/publisher-github",
+      config: {
+        repository: {
+          owner: "Beasleydog",
+          name: "christmaslights",
+        },
+        prerelease: true,
+      },
+    },
+  ],
 };

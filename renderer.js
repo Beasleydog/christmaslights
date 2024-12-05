@@ -9,6 +9,7 @@ let animationFrameId = null;
 const FPS = 7; // Set desired FPS
 const frameInterval = 1000 / FPS; // Calculate interval between frames
 let lastFrameTime = 0;
+const RANDOM_ROTATION_AMOUNT = 0.2; // Amount of random rotation in radians (±0.1 rad or ±5.7 degrees)
 
 // Color presets
 const COLOR_PRESETS = {
@@ -212,6 +213,7 @@ class Light {
       CONFIG.TWINKLE_SPEED_MIN +
       Math.random() * (CONFIG.TWINKLE_SPEED_MAX - CONFIG.TWINKLE_SPEED_MIN);
     this.twinklePhase = Math.random() * Math.PI * 2;
+    this.timeOffset = Math.random() * 10; // Add random time offset between 0 and 10 seconds
   }
 
   getCurrentColor(time) {
@@ -219,8 +221,8 @@ class Light {
       return this.color;
     }
 
-    // Use high-precision time for smooth color transitions
-    const preciseTime = performance.now() / 1000;
+    // Use high-precision time for smooth color transitions and add the time offset
+    const preciseTime = performance.now() / 1000 + this.timeOffset;
 
     // Calculate position in the color sequence using precise time
     const totalShift = preciseTime * CONFIG.COLOR_CHASE_SPEED;
@@ -507,22 +509,26 @@ function createLights() {
     for (let i = 0; i < NUM_LIGHTS / 2; i++) {
       const y = spacing / 2 + i * (spacing + lightWidth);
       const color = colors[Math.floor(Math.random() * colors.length)];
-      // Left side lights, rotated 90 degrees clockwise
-      lights.push(new Light(sideXOffset, y, color, i, -Math.PI / 2));
+      // Left side lights, rotated 90 degrees clockwise plus small random rotation
+      const randomRotation = (Math.random() - 0.5) * RANDOM_ROTATION_AMOUNT;
+      lights.push(
+        new Light(sideXOffset, y, color, i, -Math.PI / 2 + randomRotation)
+      );
     }
 
     // Create lights for right side
     for (let i = 0; i < NUM_LIGHTS / 2; i++) {
       const y = spacing / 2 + i * (spacing + lightWidth);
       const color = colors[Math.floor(Math.random() * colors.length)];
-      // Right side lights, rotated -90 degrees counterclockwise
+      // Right side lights, rotated 90 degrees counterclockwise plus small random rotation
+      const randomRotation = (Math.random() - 0.5) * RANDOM_ROTATION_AMOUNT;
       lights.push(
         new Light(
           canvas.width - sideXOffset,
           y,
           color,
           i + NUM_LIGHTS / 2,
-          Math.PI / 2
+          Math.PI / 2 + randomRotation
         )
       );
     }
@@ -534,7 +540,8 @@ function createLights() {
     for (let i = 0; i < NUM_LIGHTS; i++) {
       const x = spacing / 2 + i * (spacing + lightWidth);
       const color = colors[Math.floor(Math.random() * colors.length)];
-      lights.push(new Light(x, yOffset, color, i, 0));
+      const randomRotation = (Math.random() - 0.5) * RANDOM_ROTATION_AMOUNT;
+      lights.push(new Light(x, yOffset, color, i, randomRotation));
     }
   }
 }

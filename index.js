@@ -1,4 +1,7 @@
 const { app, BrowserWindow, screen, ipcMain } = require("electron");
+const { updateElectronApp } = require("update-electron-app");
+updateElectronApp();
+
 const path = require("path");
 
 if (require("electron-squirrel-startup")) {
@@ -98,11 +101,13 @@ if (!gotTheLock) {
   ipcMain.handle("start-lights", async (event, settings) => {
     if (!lightsWindow) {
       createLightsWindow();
+      // Wait for the window to finish loading
+      await new Promise((resolve) => {
+        lightsWindow.webContents.once("did-finish-load", resolve);
+      });
     }
-    // Send settings to lights window
-    setTimeout(() => {
-      lightsWindow.webContents.send("update-settings", settings);
-    }, 100);
+    // Send settings to lights window after it's ready
+    lightsWindow.webContents.send("update-settings", settings);
   });
 
   ipcMain.handle("stop-lights", async () => {
