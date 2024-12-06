@@ -100,8 +100,8 @@ window.electronAPI.onSettingsUpdate((event, settings) => {
   CONFIG.TWINKLE_INTENSITY_BASE = settings.brightness * 0.7;
   CONFIG.DANCE_PATTERN = settings.dancePattern || DANCE_PATTERNS.NONE;
   CONFIG.DANCE_SPEED = settings.danceSpeed || 1.0;
-  CONFIG.HANG_WIDTH = settings.hangWidth || 200;
-  CONFIG.HANG_DEPTH = settings.hangDepth || 80;
+  CONFIG.HANG_WIDTH = settings.hangWidth || 300;
+  CONFIG.HANG_DEPTH = settings.hangDepth || 40;
 
   // Cancel existing animation frame before recreating lights
   if (animationFrameId !== null) {
