@@ -21,7 +21,7 @@
         padding: 30px;
         border-radius: 15px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-        max-width: 600px;
+        max-width: 800px;
         width: 100%;
         position: relative;
         border: 2px solid #c41e3a;
@@ -37,31 +37,45 @@
       h2 {
         color: #c41e3a;
         text-align: center;
-        margin-bottom: 15px;
+        margin-bottom: 25px;
         font-size: 32px;
         text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
       }
-      .form-group {
-        margin-bottom: 20px;
+      .controls-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+      }
+      .control-section {
         background: rgba(255, 255, 255, 0.9);
-        padding: 15px;
+        padding: 20px;
         border-radius: 8px;
         border: 1px solid #e0e0e0;
+      }
+      .section-title {
+        color: #2d5a27;
+        font-size: 20px;
+        margin-bottom: 15px;
+        padding-bottom: 5px;
+        border-bottom: 2px solid #2d5a27;
+      }
+      .form-group {
+        margin-bottom: 15px;
       }
       label {
         display: block;
         margin-bottom: 8px;
         font-weight: bold;
         color: #2d5a27;
-        font-size: 18px;
+        font-size: 16px;
       }
       select,
       input[type="number"] {
         width: 100%;
+        padding: 8px;
         border: 2px solid #2d5a27;
         border-radius: 8px;
-        margin-bottom: 0px;
-        font-size: 18px;
+        font-size: 16px;
         transition: all 0.3s ease;
       }
       select:focus,
@@ -70,6 +84,11 @@
         border-color: #c41e3a;
         box-shadow: 0 0 5px rgba(196, 30, 58, 0.3);
       }
+      .button-section {
+        grid-column: 1 / -1;
+        text-align: center;
+        margin-top: 20px;
+      }
       button {
         background: linear-gradient(45deg, #c41e3a, #e4364c);
         color: white;
@@ -77,8 +96,7 @@
         border: none;
         border-radius: 8px;
         cursor: pointer;
-        width: 100%;
-        margin-top: 15px;
+        width: 200px;
         font-size: 18px;
         font-weight: bold;
         text-transform: uppercase;
@@ -105,38 +123,71 @@
   <body>
     <div class="container">
       <h2>Holiday Lights</h2>
-      <div class="form-group">
-        <label for="colorPreset">Color Preset:</label>
-        <select id="colorPreset">
-          <option value="RAINBOW">Rainbow</option>
-          <option value="CHRISTMAS">Christmas</option>
-          <option value="HANUKKAH">Hanukkah</option>
-        </select>
+      <div class="controls-grid">
+        <div class="control-section">
+          <div class="section-title">Appearance</div>
+          <div class="form-group">
+            <label for="colorPreset">Color Preset:</label>
+            <select id="colorPreset">
+              <option value="RAINBOW">Rainbow</option>
+              <option value="CHRISTMAS">Christmas</option>
+              <option value="HANUKKAH">Hanukkah</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="position">Light Position:</label>
+            <select id="position">
+              <option value="TOP">Top</option>
+              <option value="SIDE">Sides</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="numLights">Number of Lights:</label>
+            <input type="number" id="numLights" value="50" min="1" max="200" />
+          </div>
+        </div>
+
+        <div class="control-section">
+          <div class="section-title">Animation</div>
+          <div class="form-group">
+            <label for="speed">Color Speed:</label>
+            <input
+              type="number"
+              id="speed"
+              value="1"
+              min="0.1"
+              max="5"
+              step="0.1"
+            />
+          </div>
+          <div class="form-group">
+            <label for="dancePattern">Dance Pattern:</label>
+            <select id="dancePattern">
+              <option value="none">No Dance</option>
+              <option value="random">Random</option>
+              <option value="sequential">Sequential</option>
+              <option value="alternate">Alternate</option>
+              <option value="wave">Wave</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="danceSpeed">Dance Speed:</label>
+            <input
+              type="number"
+              id="danceSpeed"
+              value="1"
+              min="0.1"
+              max="5"
+              step="0.1"
+            />
+          </div>
+        </div>
+
+        <div class="button-section">
+          <button id="toggleButton">Start Lights</button>
+          <div class="status" id="status">Status: Stopped</div>
+        </div>
       </div>
-      <div class="form-group">
-        <label for="position">Light Position:</label>
-        <select id="position">
-          <option value="TOP">Top</option>
-          <option value="SIDE">Sides</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="numLights">Number of Lights:</label>
-        <input type="number" id="numLights" value="50" min="1" max="200" />
-      </div>
-      <div class="form-group">
-        <label for="speed">Animation Speed:</label>
-        <input
-          type="number"
-          id="speed"
-          value="1"
-          min="0.1"
-          max="5"
-          step="0.1"
-        />
-      </div>
-      <button id="toggleButton">Start Lights</button>
-      <div class="status" id="status">Status: Stopped</div>
     </div>
     <script src="control.js"></script>
   </body>

@@ -35,12 +35,22 @@ const COLOR_PRESETS = {
   ],
 };
 
+// Dance patterns
+const DANCE_PATTERNS = {
+  NONE: "none",
+  RANDOM: "random",
+  SEQUENTIAL: "sequential",
+  ALTERNATE: "alternate",
+  WAVE: "wave",
+};
+
 // Configuration
 let CONFIG = {
   // Light appearance
   BULB_RADIUS: 6,
   BASE_WIDTH: 4,
-  BASE_HEIGHT: 10,
+  BASE_HEIGHT: 8,
+  BASE_OFFSET: 2.5,
 
   // Animation settings
   PULSE_SPEED_MIN: 0.5,
@@ -66,6 +76,11 @@ let CONFIG = {
 
   // Position
   POSITION: "SIDE", // Default position
+
+  // Dance pattern settings
+  DANCE_PATTERN: DANCE_PATTERNS.NONE,
+  DANCE_SPEED: 1.0,
+  COLOR_SPEED: 1.0,
 };
 
 // Update settings from control window
@@ -74,9 +89,12 @@ window.electronAPI.onSettingsUpdate((event, settings) => {
   colors = COLOR_PRESETS[settings.colorPreset]; // Update the active colors array
   CONFIG.POSITION = settings.position;
   NUM_LIGHTS = settings.numLights;
+  CONFIG.COLOR_SPEED = settings.speed;
   CONFIG.COLOR_CHASE_SPEED = settings.speed * 0.3;
   CONFIG.GLOW_INTENSITY_BASE = settings.brightness * 0.6;
   CONFIG.TWINKLE_INTENSITY_BASE = settings.brightness * 0.7;
+  CONFIG.DANCE_PATTERN = settings.dancePattern || DANCE_PATTERNS.NONE;
+  CONFIG.DANCE_SPEED = settings.danceSpeed || 1.0;
 
   // Cancel existing animation frame before recreating lights
   if (animationFrameId !== null) {
@@ -203,6 +221,7 @@ class Light {
     this.radius = CONFIG.BULB_RADIUS;
     this.baseWidth = CONFIG.BASE_WIDTH;
     this.baseHeight = CONFIG.BASE_HEIGHT;
+    this.baseOffset = CONFIG.BASE_OFFSET;
     this.pulseSpeed =
       CONFIG.PULSE_SPEED_MIN +
       Math.random() * (CONFIG.PULSE_SPEED_MAX - CONFIG.PULSE_SPEED_MIN);
@@ -213,7 +232,48 @@ class Light {
       CONFIG.TWINKLE_SPEED_MIN +
       Math.random() * (CONFIG.TWINKLE_SPEED_MAX - CONFIG.TWINKLE_SPEED_MIN);
     this.twinklePhase = Math.random() * Math.PI * 2;
-    this.timeOffset = Math.random() * 10; // Add random time offset between 0 and 10 seconds
+    this.timeOffset = Math.random() * 10;
+    this.visible = true;
+    this.danceTimeOffset = Math.random() * Math.PI * 2;
+    this.lastColor = color; // Store the last color when light was on
+  }
+
+  updateVisibility(time) {
+    const speed = CONFIG.DANCE_SPEED;
+    const normalizedTime = time * speed * 0.001;
+
+    switch (CONFIG.DANCE_PATTERN) {
+      case DANCE_PATTERNS.NONE:
+        this.visible = true;
+        break;
+      case DANCE_PATTERNS.RANDOM:
+        // Update visibility every ~1 second based on speed
+        if (
+          Math.floor(normalizedTime + this.danceTimeOffset) !==
+          Math.floor(normalizedTime + this.danceTimeOffset - 0.1)
+        ) {
+          this.visible = Math.random() < 0.5;
+        }
+        break;
+      case DANCE_PATTERNS.SEQUENTIAL:
+        // Create a moving window of visible lights
+        const sequenceLength = Math.max(3, Math.floor(NUM_LIGHTS * 0.2));
+        const position = (normalizedTime * NUM_LIGHTS) % NUM_LIGHTS;
+        this.visible =
+          Math.abs(this.index - position) < sequenceLength ||
+          Math.abs(this.index - position + NUM_LIGHTS) < sequenceLength ||
+          Math.abs(this.index - position - NUM_LIGHTS) < sequenceLength;
+        break;
+      case DANCE_PATTERNS.ALTERNATE:
+        // Alternate between odd and even lights
+        const phase = Math.floor(normalizedTime * 2) % 2;
+        this.visible = this.index % 2 === phase;
+        break;
+      case DANCE_PATTERNS.WAVE:
+        // Create a sine wave pattern
+        this.visible = Math.sin(normalizedTime * 2 + this.index * 0.3) > 0;
+        break;
+    }
   }
 
   getCurrentColor(time) {
@@ -221,11 +281,17 @@ class Light {
       return this.color;
     }
 
+    // If light is off during dance pattern, return the last color
+    if (!this.visible && CONFIG.DANCE_PATTERN !== DANCE_PATTERNS.NONE) {
+      return this.lastColor;
+    }
+
     // Use high-precision time for smooth color transitions and add the time offset
     const preciseTime = performance.now() / 1000 + this.timeOffset;
 
-    // Calculate position in the color sequence using precise time
-    const totalShift = preciseTime * CONFIG.COLOR_CHASE_SPEED;
+    // Calculate position in the color sequence using precise time and COLOR_SPEED
+    const totalShift =
+      preciseTime * CONFIG.COLOR_CHASE_SPEED * CONFIG.COLOR_SPEED;
     const position = (this.index + totalShift) % colors.length;
     const currentIndex = Math.floor(position);
     const nextIndex = (currentIndex + 1) % colors.length;
@@ -248,11 +314,18 @@ class Light {
       factor
     );
 
-    return ColorUtils.HSLToString(
+    const newColor = ColorUtils.HSLToString(
       interpolatedHSL.h,
       interpolatedHSL.s,
       interpolatedHSL.l
     );
+
+    // Store the new color if the light is visible
+    if (this.visible) {
+      this.lastColor = newColor;
+    }
+
+    return newColor;
   }
 
   draw() {
@@ -260,14 +333,13 @@ class Light {
     const deltaTime = (time - this.lastUpdate) / 1000;
     this.lastUpdate = time;
 
-    this.pulsePhase += deltaTime * this.pulseSpeed;
-    this.twinklePhase += deltaTime * this.twinkleSpeed;
-
-    const finalIntensity = 1;
+    this.updateVisibility(time);
 
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rotation);
+
+    if (!this.visible) ctx.globalAlpha = 0.3;
 
     // Draw enhanced base shadows with metallic effect
     ctx.beginPath();
@@ -305,50 +377,66 @@ class Light {
     ctx.fillStyle = baseGradient;
     ctx.fillRect(
       -this.baseWidth / 2,
-      -this.baseHeight,
+      -this.baseHeight - this.baseOffset,
       this.baseWidth,
-      this.baseHeight
+      this.baseHeight - this.baseOffset
     );
 
     // Overlay cylindrical gradient with partial opacity
-    ctx.globalAlpha = 0.7;
+    ctx.globalAlpha = this.visible ? 0.7 : 0.3;
     ctx.fillStyle = cylinderGradient;
     ctx.fillRect(
       -this.baseWidth / 2,
-      -this.baseHeight,
+      -this.baseHeight - this.baseOffset,
       this.baseWidth,
-      this.baseHeight
+      this.baseHeight - this.baseOffset
     );
     ctx.restore();
 
-    // Draw enhanced metal connector with detailed metallic effect
-    const connectorGradient = ctx.createLinearGradient(
-      -this.baseWidth * 0.8,
-      0,
-      this.baseWidth * 0.8,
-      3
-    );
-    connectorGradient.addColorStop(0, "#B8B8B8");
-    connectorGradient.addColorStop(0.5, "#E0E0E0");
-    connectorGradient.addColorStop(1, "#A0A0A0");
+    if (!this.visible) {
+      // Draw dimmed bulb
+      ctx.save();
+      ctx.translate(0, this.baseHeight / 2);
+      ctx.scale(1, 1.5);
 
-    // Draw connector with large, opaque shadow
-    ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
-    ctx.shadowBlur = 15;
-    ctx.shadowOffsetY = 2;
-    ctx.shadowOffsetX = 0;
-    ctx.fillStyle = connectorGradient;
+      const currentColor = this.getCurrentColor(time);
+      ctx.fillStyle = currentColor;
 
-    // Rounded connector edges
-    ctx.beginPath();
-    ctx.roundRect(-this.baseWidth * 0.8, 0, this.baseWidth * 1.6, 3, 1);
-    ctx.fill();
+      // Draw bulb shape
+      ctx.beginPath();
+      ctx.ellipse(
+        0,
+        -this.radius * 0.1,
+        this.radius * 0.8,
+        this.radius,
+        0,
+        0,
+        Math.PI * 2
+      );
+      ctx.moveTo(this.radius * 0.8, -this.radius * 0.1);
+      ctx.quadraticCurveTo(
+        this.radius * 0.4,
+        this.radius * 0.8,
+        0,
+        this.radius * 1.1
+      );
+      ctx.quadraticCurveTo(
+        -this.radius * 0.4,
+        this.radius * 0.8,
+        -this.radius * 0.8,
+        -this.radius * 0.1
+      );
+      ctx.fill();
 
-    // Reset shadows before drawing the glowing bulb
-    ctx.shadowColor = "transparent";
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
+      ctx.restore();
+      ctx.restore();
+      return;
+    }
+
+    this.pulsePhase += deltaTime * this.pulseSpeed;
+    this.twinklePhase += deltaTime * this.twinkleSpeed;
+
+    const finalIntensity = 1;
 
     // Draw dark gray shadow for depth
     ctx.save();

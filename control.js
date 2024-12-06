@@ -5,6 +5,8 @@ const elements = {
   position: document.getElementById("position"),
   numLights: document.getElementById("numLights"),
   speed: document.getElementById("speed"),
+  danceSpeed: document.getElementById("danceSpeed"),
+  dancePattern: document.getElementById("dancePattern"),
   toggleButton: document.getElementById("toggleButton"),
   status: document.getElementById("status"),
 };
@@ -24,6 +26,8 @@ function getSettings() {
     position: elements.position.value,
     numLights: parseInt(elements.numLights.value),
     speed: parseFloat(elements.speed.value),
+    danceSpeed: parseFloat(elements.danceSpeed.value),
+    dancePattern: elements.dancePattern.value,
   };
   return settings;
 }
