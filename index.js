@@ -45,6 +45,7 @@ if (!gotTheLock) {
       transparent: true,
       alwaysOnTop: true,
       skipTaskbar: true,
+      type: "desktop",
       webPreferences: {
         preload: path.join(__dirname, "preload.js"),
         nodeIntegration: false,
@@ -54,6 +55,8 @@ if (!gotTheLock) {
       icon: path.join(__dirname, "logo.ico"),
     });
 
+    lightsWindow.setAlwaysOnTop(true, "screen-saver");
+    lightsWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     lightsWindow.setFullScreen(true);
     lightsWindow.setIgnoreMouseEvents(true, { forward: true });
     lightsWindow.webContents.setIgnoreMenuShortcuts(true);

@@ -84,8 +84,8 @@ let CONFIG = {
   COLOR_SPEED: 1.0,
 
   // Hang settings
-  HANG_DEPTH: 80,
-  HANG_WIDTH: 200,
+  HANG_DEPTH: 40,
+  HANG_WIDTH: 300,
 };
 
 // Update settings from control window
