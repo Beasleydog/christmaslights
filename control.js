@@ -36,15 +36,33 @@ function getSettings() {
   return settings;
 }
 
+function applySettings(settings) {
+  if (!settings) return;
+
+  Object.entries(settings).forEach(([key, value]) => {
+    if (elements[key]) {
+      elements[key].value = value;
+    }
+  });
+}
+
+async function saveSettings() {
+  const settings = getSettings();
+  await window.electronAPI.saveSettings(settings);
+}
+
 async function updateLights() {
   if (isRunning) {
-    await window.electronAPI.startLights(getSettings());
+    const settings = getSettings();
+    await window.electronAPI.startLights(settings);
+    await saveSettings();
   }
 }
 
 async function toggleLights() {
   if (!isRunning) {
     await window.electronAPI.startLights(getSettings());
+    await saveSettings();
   } else {
     await window.electronAPI.stopLights();
   }
@@ -55,6 +73,10 @@ async function toggleLights() {
 async function init() {
   const running = await window.electronAPI.getLightsStatus();
   updateButtonState(running);
+
+  // Load saved settings
+  const savedSettings = await window.electronAPI.loadSettings();
+  applySettings(savedSettings);
 }
 
 // Event listeners

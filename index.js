@@ -1,8 +1,10 @@
 const { app, BrowserWindow, screen, ipcMain } = require("electron");
 const { updateElectronApp } = require("update-electron-app");
+const Store = require("electron-store");
 updateElectronApp();
 
 const path = require("path");
+const store = new Store();
 
 if (require("electron-squirrel-startup")) {
   app.quit();
@@ -101,7 +103,17 @@ if (!gotTheLock) {
   };
 
   // IPC handlers
+  ipcMain.handle("save-settings", async (event, settings) => {
+    store.set("lights-settings", settings);
+  });
+
+  ipcMain.handle("load-settings", async () => {
+    return store.get("lights-settings");
+  });
+
   ipcMain.handle("start-lights", async (event, settings) => {
+    // Save settings when lights are started
+    store.set("lights-settings", settings);
     if (!lightsWindow) {
       createLightsWindow();
       // Wait for the window to finish loading
