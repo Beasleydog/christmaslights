@@ -7,6 +7,8 @@ const elements = {
   speed: document.getElementById("speed"),
   danceSpeed: document.getElementById("danceSpeed"),
   dancePattern: document.getElementById("dancePattern"),
+  hangWidth: document.getElementById("hangWidth"),
+  hangDepth: document.getElementById("hangDepth"),
   toggleButton: document.getElementById("toggleButton"),
   status: document.getElementById("status"),
 };
@@ -28,8 +30,16 @@ function getSettings() {
     speed: parseFloat(elements.speed.value),
     danceSpeed: parseFloat(elements.danceSpeed.value),
     dancePattern: elements.dancePattern.value,
+    hangWidth: parseInt(elements.hangWidth.value),
+    hangDepth: parseInt(elements.hangDepth.value),
   };
   return settings;
+}
+
+async function updateLights() {
+  if (isRunning) {
+    await window.electronAPI.startLights(getSettings());
+  }
 }
 
 async function toggleLights() {
@@ -53,9 +63,9 @@ elements.toggleButton.addEventListener("click", toggleLights);
 // Add event listeners for settings changes
 Object.entries(elements).forEach(([key, element]) => {
   if (key !== "toggleButton" && key !== "status") {
-    element.addEventListener("change", getSettings);
+    element.addEventListener("change", updateLights);
     if (element.type === "number") {
-      element.addEventListener("input", getSettings);
+      element.addEventListener("input", updateLights);
     }
   }
 });

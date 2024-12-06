@@ -71,7 +71,7 @@ if (!gotTheLock) {
     }
 
     controlWindow = new BrowserWindow({
-      width: 800,
+      width: 550,
       height: 800,
       resizable: false,
       webPreferences: {

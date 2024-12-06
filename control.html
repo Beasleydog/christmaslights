@@ -18,10 +18,10 @@
       }
       .container {
         background-color: rgba(255, 255, 255, 0.95);
-        padding: 30px;
+        padding: 25px;
         border-radius: 15px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-        max-width: 800px;
+        max-width: 450px;
         width: 100%;
         position: relative;
         border: 2px solid #c41e3a;
@@ -48,19 +48,22 @@
       }
       .control-section {
         background: rgba(255, 255, 255, 0.9);
-        padding: 20px;
+        padding: 15px;
         border-radius: 8px;
         border: 1px solid #e0e0e0;
       }
       .section-title {
         color: #2d5a27;
-        font-size: 20px;
-        margin-bottom: 15px;
+        font-size: 18px;
+        margin-bottom: 12px;
         padding-bottom: 5px;
         border-bottom: 2px solid #2d5a27;
       }
       .form-group {
-        margin-bottom: 15px;
+        margin-bottom: 12px;
+      }
+      .form-group:last-child {
+        margin-bottom: 0;
       }
       label {
         display: block;
@@ -179,6 +182,28 @@
               min="0.1"
               max="5"
               step="0.1"
+            />
+          </div>
+          <div class="form-group">
+            <label for="hangWidth">Section Width:</label>
+            <input
+              type="number"
+              id="hangWidth"
+              value="200"
+              min="50"
+              max="500"
+              step="10"
+            />
+          </div>
+          <div class="form-group">
+            <label for="hangDepth">Droop Amount:</label>
+            <input
+              type="number"
+              id="hangDepth"
+              value="80"
+              min="20"
+              max="200"
+              step="5"
             />
           </div>
         </div>

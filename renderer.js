@@ -2,7 +2,6 @@ const canvas = document.getElementById("lightsCanvas");
 const ctx = canvas.getContext("2d");
 let lights = [];
 let NUM_LIGHTS = 50;
-const yOffset = 10;
 const sideXOffset = 10;
 let isInitialized = false;
 let animationFrameId = null;
@@ -51,6 +50,8 @@ let CONFIG = {
   BASE_WIDTH: 4,
   BASE_HEIGHT: 8,
   BASE_OFFSET: 2.5,
+  TOP_OFFSET: 10,
+  LIGHT_Y_OFFSET: 10,
 
   // Animation settings
   PULSE_SPEED_MIN: 0.5,
@@ -81,6 +82,10 @@ let CONFIG = {
   DANCE_PATTERN: DANCE_PATTERNS.NONE,
   DANCE_SPEED: 1.0,
   COLOR_SPEED: 1.0,
+
+  // Hang settings
+  HANG_DEPTH: 80,
+  HANG_WIDTH: 200,
 };
 
 // Update settings from control window
@@ -95,6 +100,8 @@ window.electronAPI.onSettingsUpdate((event, settings) => {
   CONFIG.TWINKLE_INTENSITY_BASE = settings.brightness * 0.7;
   CONFIG.DANCE_PATTERN = settings.dancePattern || DANCE_PATTERNS.NONE;
   CONFIG.DANCE_SPEED = settings.danceSpeed || 1.0;
+  CONFIG.HANG_WIDTH = settings.hangWidth || 200;
+  CONFIG.HANG_DEPTH = settings.hangDepth || 80;
 
   // Cancel existing animation frame before recreating lights
   if (animationFrameId !== null) {
@@ -581,6 +588,20 @@ class Light {
   }
 }
 
+// Calculate Y position on a semicircle
+function calculateSemicircleY(x, sectionWidth, depth) {
+  // Get position within current section (0 to 1)
+  const sectionIndex = Math.floor(x / sectionWidth);
+  const sectionStartX = sectionIndex * sectionWidth;
+  const relativeX = (x - sectionStartX) / sectionWidth;
+
+  // Convert to range -1 to 1
+  const normalizedX = 2 * relativeX - 1;
+
+  // Simple semicircle formula: y = depth * sqrt(1 - x²)
+  return depth * Math.sqrt(1 - normalizedX * normalizedX);
+}
+
 function createLights() {
   lights = [];
   const lightWidth = 20;
@@ -621,7 +642,7 @@ function createLights() {
       );
     }
   } else {
-    // TOP position (original behavior)
+    // TOP position
     const extraSpace = Math.max(0, canvas.width - lightWidth * NUM_LIGHTS);
     const spacing = extraSpace / NUM_LIGHTS;
 
@@ -629,7 +650,12 @@ function createLights() {
       const x = spacing / 2 + i * (spacing + lightWidth);
       const color = colors[Math.floor(Math.random() * colors.length)];
       const randomRotation = (Math.random() - 0.5) * RANDOM_ROTATION_AMOUNT;
-      lights.push(new Light(x, yOffset, color, i, randomRotation));
+
+      const y =
+        CONFIG.TOP_OFFSET +
+        CONFIG.LIGHT_Y_OFFSET +
+        calculateSemicircleY(x, CONFIG.HANG_WIDTH, CONFIG.HANG_DEPTH);
+      lights.push(new Light(x, y, color, i, randomRotation));
     }
   }
 }
@@ -691,13 +717,20 @@ function drawWire() {
     ctx.moveTo(canvas.width, 0);
     ctx.lineTo(canvas.width, canvas.height);
   } else {
-    // Draw wire across top
-    ctx.moveTo(0, 0);
-    ctx.lineTo(canvas.width, 0);
+    // Draw wire across top with semicircle sag
+    ctx.moveTo(0, CONFIG.TOP_OFFSET);
+
+    // Draw curved segments
+    for (let x = 0; x <= canvas.width; x += 2) {
+      const y =
+        CONFIG.TOP_OFFSET +
+        calculateSemicircleY(x, CONFIG.HANG_WIDTH, CONFIG.HANG_DEPTH);
+      ctx.lineTo(x, y);
+    }
   }
 
   ctx.strokeStyle = "#333333";
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 3;
   ctx.stroke();
 }
 
